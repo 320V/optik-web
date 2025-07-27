@@ -1,0 +1,554 @@
+{% extends 'admin/base.html' %}
+{% load i18n static %}
+{% load my_filters %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <style>
+    body {
+        background-color: #f8f9fa;
+    }
+    #content-main {
+        max-width: 1400px;
+        margin: 20px auto;
+        padding: 0 20px;
+    }
+    h1 {
+        color: #343a40;
+        margin-bottom: 25px;
+        text-align: center;
+    }
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 25px;
+      margin-top: 25px;
+    }
+    .chart-container {
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      min-height: 380px; /* Adjust min-height as needed */
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+      transition: transform 0.2s ease-in-out;
+    }
+    .chart-container:hover {
+        transform: translateY(-5px);
+    }
+    .chart-header {
+      font-size: 1.3em;
+      font-weight: bold;
+      margin-bottom: 20px;
+      color: #212529;
+      text-align: center;
+      width: 100%;
+    }
+    .time-frame-selector {
+        margin-bottom: 15px;
+        text-align: center;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .time-frame-selector button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 25px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 500;
+        box-shadow: 0 2px 5px rgba(0,123,255,0.2);
+        white-space: nowrap;
+    }
+    .time-frame-selector button.active {
+        background-color: #0056b3;
+        box-shadow: 0 3px 8px rgba(0,86,179,0.3);
+        transform: translateY(-1px);
+    }
+    .time-frame-selector button:hover:not(.active) {
+        background-color: #0056b3;
+        transform: translateY(-1px);
+    }
+    .stat-box { /* Bu stil artık kullanılmayacak, ancak yine de kalabilir */
+      background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      font-size: 1.2em;
+      font-weight: bold;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 180px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      transition: transform 0.2s ease-in-out;
+    }
+    .stat-box:hover {
+        transform: translateY(-5px);
+    }
+    .stat-box strong {
+        font-size: 2.5em;
+        color: #fff;
+        display: block;
+        margin-top: 10px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    }
+    .chart-placeholder {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+        color: #6c757d;
+        font-style: italic;
+        text-align: center;
+    }
+
+    /* Stok Bilgileri Stili */
+    .stock-info-container {
+        grid-column: span 1;
+        background: linear-gradient(135deg, #1cb5e0 0%, #000046 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        font-size: 1.2em;
+        font-weight: bold;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 180px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease-in-out;
+    }
+    .stock-info-container:hover {
+        transform: translateY(-5px);
+    }
+    .stock-info-container p {
+        margin: 5px 0;
+        font-size: 1.1em;
+    }
+    .stock-info-container strong {
+        font-size: 1.8em;
+        color: #fff;
+        display: inline;
+        margin-left: 5px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    }
+
+    @media (min-width: 1201px) {
+        .dashboard-grid {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 25px;
+        }
+        .full-width-chart-container {
+            grid-column: span 3;
+        }
+    }
+
+    @media (min-width: 769px) and (max-width: 1200px) {
+        #content-main {
+            padding: 0 15px;
+        }
+        .dashboard-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .chart-container, .stat-box, .stock-info-container {
+            min-height: 350px;
+            padding: 15px;
+        }
+        .stat-box strong, .stock-info-container strong {
+            font-size: 2.2em;
+        }
+        .full-width-chart-container {
+            grid-column: span 2;
+        }
+    }
+
+    @media (max-width: 768px) {
+        #content-main {
+            padding: 0 10px;
+        }
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        .chart-container, .stat-box, .stock-info-container {
+            min-height: 300px;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+        .chart-header {
+            font-size: 1.2em;
+        }
+        .stat-box strong, .stock-info-container strong {
+            font-size: 1.8em;
+        }
+        .time-frame-selector button {
+            padding: 8px 12px;
+            font-size: 0.9em;
+        }
+        .full-width-chart-container {
+            grid-column: span 1;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .chart-container, .stat-box, .stock-info-container {
+            min-height: 250px;
+            padding: 10px;
+        }
+        .chart-header {
+            font-size: 1.1em;
+        }
+        .stat-box strong, .stock-info-container strong {
+            font-size: 1.8em;
+        }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div id="content-main">
+    <h1>{% translate "Genel Bakış Paneli" %}</h1>
+
+    <div class="dashboard-grid">
+      <div class="chart-container">
+        <div class="chart-header">Sipariş Durumları</div>
+        <div id="siparisDurumGrafik" style="width: 100%; height: 250px;"></div>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-header">Veresiye (Alınacak Toplam Tutar)</div>
+        <div id="veresiyeTutarChart" style="width: 100%; height: 250px;"></div>
+      </div>
+
+      {# Stok Bilgileri #}
+      <div class="stock-info-container">
+        <p>Stokta Olmayan Ürün Sayısı: <strong>{{ stokta_olmayan_urun_sayisi }}</strong></p>
+        <p>Düşük Stoklu Ürün Sayısı (< {{ dusuk_stok_esigi }}): <strong>{{ dusuk_stok_urun_sayisi }}</strong></p>
+      </div>
+
+    </div>
+
+    <hr style="margin: 40px 0; border: 0; border-top: 1px solid #dee2e6;">
+
+    {# Tek Dinamik Net Kazanç Grafiği #}
+    <div class="chart-container full-width-chart-container">
+        <div class="chart-header" id="netKazancGrafikBaslik">Net Kazanç</div>
+        <div class="time-frame-selector" data-chart-group="netKazanc">
+            <button data-chart-type="haftalik" class="active">Haftalık</button>
+            <button data-chart-type="aylik">Aylık</button>
+            <button data-chart-type="ucaylik">3 Aylık</button>
+            <button data-chart-type="altiaylik">6 Aylık</button>
+            <button data-chart-type="yillik">Yıllık</button>
+            <button data-chart-type="tumzamanlar">Tüm Zamanlar</button>
+        </div>
+        <div id="netKazancDinamikGrafik" style="width: 100%; height: 350px;"></div>
+    </div>
+
+    <hr style="margin: 40px 0; border: 0; border-top: 1px solid #dee2e6;">
+
+    {# Tek Dinamik Giderler Grafiği #}
+    <div class="chart-container full-width-chart-container">
+        <div class="chart-header" id="giderlerGrafikBaslik">Giderler</div>
+        <div class="time-frame-selector" data-chart-group="giderler">
+            <button data-chart-type="haftalik" class="active">Haftalık</button>
+            <button data-chart-type="aylik">Aylık</button>
+            <button data-chart-type="ucaylik">3 Aylık</button>
+            <button data-chart-type="altiaylik">6 Aylık</button>
+            <button data-chart-type="yillik">Yıllık</button>
+            <button data-chart-type="tumzamanlar">Tüm Zamanlar</button>
+        </div>
+        <div id="giderlerDinamikGrafik" style="width: 100%; height: 350px;"></div>
+    </div>
+
+
+    {# Veri aktarımları (json_script kullanıldı) #}
+    {{ haftalik_net_kazanc_data|json_script:"haftalik_net_kazanc_data" }}
+    {{ aylik_net_kazanc_data|json_script:"aylik_net_kazanc_data" }}
+    {{ yillik_net_kazanc_data|json_script:"yillik_net_kazanc_data" }}
+    {{ uc_aylik_net_kazanc_data|json_script:"uc_aylik_net_kazanc_data" }}
+    {{ alti_aylik_net_kazanc_data|json_script:"alti_aylik_net_kazanc_data" }}
+    {{ tum_zamanlar_net_kazanc_data|json_script:"tum_zamanlar_net_kazanc_data" }}
+    {{ toplam_veresiye_alinacak_data|json_script:"veresiye_tutar_data" }}
+
+    {{ haftalik_gider_data|json_script:"haftalik_gider_data" }}
+    {{ aylik_gider_data|json_script:"aylik_gider_data" }}
+    {{ uc_aylik_gider_data|json_script:"uc_aylik_gider_data" }}
+    {{ alti_aylik_gider_data|json_script:"alti_aylik_gider_data" }}
+    {{ yillik_gider_data|json_script:"yillik_gider_data" }}
+    {{ tum_zamanlar_gider_data|json_script:"tum_zamanlar_gider_data" }}
+
+    {{ giderler_aylik_data|json_script:"giderler_aylik_data" }} {# Kategori bazlı, hala aynı #}
+    {{ gider_kategorileri|json_script:"gider_kategorileri_data" }}
+    {{ uretimde_siparis_sayisi|json_script:"uretimde_siparis_sayisi" }}
+    {{ teslimata_hazir_siparis_sayisi|json_script:"teslimata_hazir_siparis_sayisi" }}
+
+  </div>
+{% endblock %}
+
+{% block extrajs %}
+  {{ block.super }}
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.3.3/dist/echarts.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // ECharts instance'ları
+      var veresiyeTutarChart = echarts.init(document.getElementById('veresiyeTutarChart'));
+      var netKazancDinamikGrafik = echarts.init(document.getElementById('netKazancDinamikGrafik'));
+      var giderlerDinamikGrafik = echarts.init(document.getElementById('giderlerDinamikGrafik'));
+      var siparisDurumGrafik = echarts.init(document.getElementById('siparisDurumGrafik'));
+
+
+      // JSON verilerini çek
+      var haftalikNetKazancData = JSON.parse(document.getElementById('haftalik_net_kazanc_data').textContent);
+      var aylikNetKazancData = JSON.parse(document.getElementById('aylik_net_kazanc_data').textContent);
+      var yillikNetKazancData = JSON.parse(document.getElementById('yillik_net_kazanc_data').textContent);
+      var ucAylikNetKazancData = JSON.parse(document.getElementById('uc_aylik_net_kazanc_data').textContent);
+      var altiAylikNetKazancData = JSON.parse(document.getElementById('alti_aylik_net_kazanc_data').textContent);
+      var tumZamanlarNetKazancData = JSON.parse(document.getElementById('tum_zamanlar_net_kazanc_data').textContent);
+      var toplamVeresiyeAlinacakData = JSON.parse(document.getElementById('veresiye_tutar_data').textContent);
+
+      // Giderler için yeni zaman dilimi verileri
+      var haftalikGiderData = JSON.parse(document.getElementById('haftalik_gider_data').textContent);
+      var aylikGiderData = JSON.parse(document.getElementById('aylik_gider_data').textContent);
+      var ucAylikGiderData = JSON.parse(document.getElementById('uc_aylik_gider_data').textContent);
+      var altiAylikGiderData = JSON.parse(document.getElementById('alti_aylik_gider_data').textContent);
+      var yillikGiderData = JSON.parse(document.getElementById('yillik_gider_data').textContent);
+      var tumZamanlarGiderData = JSON.parse(document.getElementById('tum_zamanlar_gider_data').textContent);
+
+      var giderlerAylikData = JSON.parse(document.getElementById('giderler_aylik_data').textContent);
+      var giderKategorileri = JSON.parse(document.getElementById('gider_kategorileri_data').textContent);
+
+      var uretimdeSiparisSayisi = JSON.parse(document.getElementById('uretimde_siparis_sayisi').textContent);
+      var teslimataHazirSiparisSayisi = JSON.parse(document.getElementById('teslimata_hazir_siparis_sayisi').textContent);
+
+      // 4. Sipariş Durumları Grafiği
+      var siparisDurumOption = {
+          tooltip: {
+              trigger: 'item',
+              formatter: '{a} <br/>{b}: {c} ({d}%)'
+          },
+          legend: {
+              orient: 'vertical',
+              left: 'left',
+              data: ['Üretimde', 'Teslime Hazır']
+          },
+          series: [
+              {
+                  name: 'Sipariş Durumu',
+                  type: 'pie',
+                  radius: ['50%', '70%'], // Donut grafik
+                  avoidLabelOverlap: false,
+                  label: {
+                      show: true,
+                      position: 'inside', // Etiketleri dilimlerin içine koy
+                      formatter: '{c}', // Sadece adeti göster
+                      fontSize: 14,
+                      fontWeight: 'bold',
+                      color: '#fff' // Etiket rengini beyaz yap
+                  },
+                  emphasis: {
+                      label: {
+                          show: true,
+                          fontSize: 18,
+                          fontWeight: 'bold'
+                      }
+                  },
+                  labelLine: {
+                      show: false
+                  },
+                  data: [
+                      {value: uretimdeSiparisSayisi, name: 'Üretimde', itemStyle: {color: '#007bff'}},
+                      {value: teslimataHazirSiparisSayisi, name: 'Teslime Hazır', itemStyle: {color: '#28a745'}}
+                  ]
+              }
+          ]
+      };
+      siparisDurumGrafik.setOption(siparisDurumOption);
+
+
+      // Veresiye Grafiği
+      var veresiyeOption = {
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        legend: { data: ['Sipariş Veresiye', 'Satış Veresiye'] },
+        xAxis: { type: 'category', data: ['Toplam Veresiye'] },
+        yAxis: { type: 'value' },
+        series: [
+          {
+            name: 'Sipariş Veresiye',
+            type: 'bar',
+            stack: 'total',
+            label: {
+                show: true,
+                position: 'inside',
+                formatter: '{c} TL'
+            },
+            data: [toplamVeresiyeAlinacakData.siparis_veresiye],
+            itemStyle: {
+                color: '#fac858'
+            }
+          },
+          {
+            name: 'Satış Veresiye',
+            type: 'bar',
+            stack: 'total',
+            label: {
+                show: true,
+                position: 'inside',
+                formatter: '{c} TL'
+            },
+            data: [toplamVeresiyeAlinacakData.satis_veresiye],
+            itemStyle: {
+                color: '#9a60b4'
+            }
+          }
+        ]
+      };
+      veresiyeTutarChart.setOption(veresiyeOption);
+
+      // --- Dinamik Grafik Fonksiyonu (Net Kazanç ve Giderler için Ortak) ---
+      function updateDynamicGraph(chartId, chartType, chartDataMap, titleElementId, isExpenseChart = false) {
+        let labels, values, title, chartMode = 'bar';
+        let seriesColor;
+        let showMarkPoints = false;
+        let xAxisName = '';
+
+        const data = chartDataMap[chartType];
+        if (!data) {
+            console.error(`Veri bulunamadı: ${chartType}`);
+            return;
+        }
+
+        labels = data.labels;
+        values = data.values;
+        title = data.title; // Başlık verinin içinden alınacak
+        
+        switch (chartType) {
+            case 'haftalik':
+                chartMode = 'line';
+                seriesColor = isExpenseChart ? '#f44336' : '#4CAF50';
+                showMarkPoints = true;
+                xAxisName = 'Gün';
+                break;
+            case 'aylik':
+                chartMode = 'line';
+                seriesColor = isExpenseChart ? '#FF5722' : '#2196F3';
+                xAxisName = 'Gün';
+                break;
+            case 'ucaylik':
+            case 'altiaylik':
+            case 'yillik':
+                chartMode = 'line';
+                seriesColor = isExpenseChart ? '#FF9800' : '#E91E63'; // Farklı renkler
+                showMarkPoints = true;
+                xAxisName = 'Ay/Yıl';
+                break;
+            case 'tumzamanlar':
+                chartMode = 'bar';
+                seriesColor = isExpenseChart ? '#8BC34A' : '#00BCD4'; // Farklı renkler
+                xAxisName = 'Yıl';
+                break;
+            default:
+                chartMode = 'bar';
+                seriesColor = isExpenseChart ? '#f44336' : '#2196F3';
+                xAxisName = '';
+        }
+
+        document.getElementById(titleElementId).innerText = title;
+
+        let series = {
+            name: isExpenseChart ? 'Giderler' : 'Net Kazanç',
+            data: values,
+            type: chartMode,
+            smooth: chartMode === 'line',
+            lineStyle: { color: seriesColor },
+            itemStyle: { color: seriesColor },
+            markPoint: showMarkPoints ? {
+              data: [
+                { type: 'max', name: 'Max' },
+                { type: 'min', name: 'Min' }
+              ],
+              label: { formatter: '{c} TL' }
+            } : null,
+            markLine: showMarkPoints ? {
+              data: [{ type: 'average', name: 'Ortalama' }],
+              label: { formatter: '{c} TL' }
+            } : null
+        };
+
+        let option = {
+          tooltip: { trigger: 'axis', formatter: `{b}<br/>${series.name}: {c} TL` },
+          xAxis: { type: 'category', data: labels, name: xAxisName },
+          yAxis: { type: 'value', name: 'Miktar (TL)' },
+          series: [series]
+        };
+        echarts.getInstanceByDom(document.getElementById(chartId)).setOption(option);
+      }
+
+      // Veri haritaları
+      const netKazancDataMap = {
+          'haftalik': haftalikNetKazancData,
+          'aylik': aylikNetKazancData,
+          'ucaylik': ucAylikNetKazancData,
+          'altiaylik': altiAylikNetKazancData,
+          'yillik': yillikNetKazancData,
+          'tumzamanlar': tumZamanlarNetKazancData
+      };
+
+      const giderlerDataMap = {
+          'haftalik': haftalikGiderData,
+          'aylik': aylikGiderData,
+          'ucaylik': ucAylikGiderData,
+          'altiaylik': altiAylikGiderData,
+          'yillik': yillikGiderData,
+          'tumzamanlar': tumZamanlarGiderData
+      };
+
+      // Dinamik butonlara olay dinleyici ekle
+      document.querySelectorAll('.time-frame-selector button').forEach(button => {
+        button.addEventListener('click', function() {
+          const chartGroup = this.closest('.time-frame-selector').dataset.chartGroup;
+          const chartType = this.dataset.chartType;
+          
+          // Aynı gruptaki tüm butonlardan 'active' sınıfını kaldır
+          this.closest('.time-frame-selector').querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+          // Tıklanan butona 'active' sınıfını ekle
+          this.classList.add('active');
+
+          if (chartGroup === 'netKazanc') {
+            updateDynamicGraph('netKazancDinamikGrafik', chartType, netKazancDataMap, 'netKazancGrafikBaslik', false);
+          } else if (chartGroup === 'giderler') {
+            updateDynamicGraph('giderlerDinamikGrafik', chartType, giderlerDataMap, 'giderlerGrafikBaslik', true);
+          }
+        });
+      });
+
+      // Başlangıçta grafiklerin ilk durumunu yükle
+      updateDynamicGraph('netKazancDinamikGrafik', 'haftalik', netKazancDataMap, 'netKazancGrafikBaslik', false);
+      updateDynamicGraph('giderlerDinamikGrafik', 'haftalik', giderlerDataMap, 'giderlerGrafikBaslik', true);
+
+
+      // Pencere boyutu değiştiğinde grafiklerin boyutunu ayarla
+      window.addEventListener('resize', function() {
+        veresiyeTutarChart.resize();
+        netKazancDinamikGrafik.resize();
+        giderlerDinamikGrafik.resize();
+        siparisDurumGrafik.resize();
+      });
+    });
+  </script>
+{% endblock %}
